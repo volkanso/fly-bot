@@ -8,7 +8,7 @@ import requests
 import time
 from datetime import datetime
 import warnings
-from IPython.display import clear_output
+
 
 warnings.filterwarnings('ignore')
 
@@ -228,7 +228,7 @@ async def ana_dinleyici_dongu():
                 guncel_kur = usdt_ticker['last']
             except: pass
 
-            clear_output(wait=True)
+         
             aktif_sayisi = sum(1 for k, v in aktif_pozisyonlar.items() if v['Durum'] == 'AKTIF')
             print(f"⚡ [Asenkron WebSocket Aktif] - Piyasayı Anlık Dinliyor... | Slot: [{aktif_sayisi}/{MAX_AKTIF_ISLEM}]")
 
