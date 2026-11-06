@@ -1,6 +1,6 @@
 
 # requirements.txt dosyasında şunlar olmalı: ccxt pandas pandas_ta requests asyncio websockets
-
+import ccxt
 import pandas as pd
 import pandas_ta as ta
 import asyncio
