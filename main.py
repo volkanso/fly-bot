@@ -1,6 +1,6 @@
 
 # requirements.txt dosyasında şunlar olmalı: ccxt pandas pandas_ta requests asyncio websockets
-import ccxt.pro as ccxtpro
+
 import pandas as pd
 import pandas_ta as ta
 import asyncio
@@ -35,7 +35,7 @@ MAX_AKTIF_ISLEM = 1
 BAKIYE_KULLANIM_ORANI = 0.95
 
 # ⚡ ASENKRON BORSA NESNESİ (ccxt.pro)
-borsa = ccxtpro.btcturk({
+borsa = ccxt.btcturk({
     'apiKey': API_KEY,
     'secret': API_SECRET,
     'enableRateLimit': True,
