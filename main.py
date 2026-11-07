@@ -26,8 +26,8 @@ except Exception as e:
 # =====================================================================
 # 🔑 BTCTURK API BAĞLANTISI VE KASA YÖNETİMİ
 # =====================================================================
-API_KEY = "739a0a8f-f773-42c8-8eed-53c923ca1ec0"       # BtcTurk API Anahtarın
-API_SECRET = "pURBqy4SQmajG/Qs1ch06Yrm+RS9JLhe" # BtcTurk Gizli Anahtarın
+API_KEY = "R7JeA//xFEDm9MIXWgBY/WlTH0KqvZiA"       # BtcTurk API Anahtarın
+API_SECRET = "ab0f3c75-f7de-4a9e-b657-8056807aaa4a" # BtcTurk Gizli Anahtarın
 
 CANLI_ISLEM_AKTIF = True
 MAX_AKTIF_ISLEM = 1
