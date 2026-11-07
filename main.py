@@ -1,9 +1,9 @@
 
 # requirements.txt dosyasında şunlar olmalı: ccxt pandas pandas_ta requests asyncio websockets
+    # requirements.txt dosyasında şunlar olmalı: ccxt pandas pandas_ta requests
 import ccxt
 import pandas as pd
 import pandas_ta as ta
-import asyncio
 import requests
 import time
 from datetime import datetime
@@ -33,8 +33,8 @@ CANLI_ISLEM_AKTIF = True
 MAX_AKTIF_ISLEM = 1
 BAKIYE_KULLANIM_ORANI = 0.95
 
-# ⚡ ASENKRON BORSA NESNESİ (ccxt.pro WebSocket)
-borsa = ccxt.pro.btcturk({
+# ⚡ DÜZ / STANDART BORSA NESNESİ (Hata Vermeyen Doğrusal Model)
+borsa = ccxt.btcturk({
     'apiKey': API_KEY,
     'secret': API_SECRET,
     'enableRateLimit': True,
@@ -75,9 +75,9 @@ son_islem_zamani = {}
 guncel_kur = 49.900
 
 # =====================================================================
-# 🦅 KESKİN NİŞANCI ANALİZ MOTORU (Senkron / Hızlı Hesaplama)
+# 🦅 KESKİN NİŞANCI ANALİZ MOTORU (Senkron / Güvenli Model)
 # =====================================================================
-async def coin_analiz_et(sembol, guncel_fiyat):
+def coin_analiz_et(sembol, guncel_fiyat):
     global aktif_pozisyonlar
     try:
         aktif_sayisi = sum(1 for k, v in aktif_pozisyonlar.items() if v['Durum'] == 'AKTIF')
@@ -93,10 +93,10 @@ async def coin_analiz_et(sembol, guncel_fiyat):
 
                 if CANLI_ISLEM_AKTIF:
                     try:
-                        bakiye = await borsa.fetch_balance()
+                        bakiye = borsa.fetch_balance()
                         miktar = bakiye['free'].get(sembol, 0)
                         if miktar > 0:
-                            emir = await borsa.create_market_sell_order(f"{sembol}/TRY", miktar)
+                            emir = borsa.create_market_sell_order(f"{sembol}/TRY", miktar)
                             print(f"   💸 CANLI SATIŞ BAŞARILI! (Emir ID: {emir['id']})", flush=True)
                     except Exception as e:
                         print(f"   ❌ Satış Hatası: {e}", flush=True)
@@ -123,7 +123,8 @@ async def coin_analiz_et(sembol, guncel_fiyat):
             return
         son_islem_zamani[sembol] = su_an_ms
 
-        mumlar = await borsa.fetch_ohlcv(f"{sembol}/TRY", timeframe='15m', limit=150)
+        # Mum verilerini çekiyoruz
+        mumlar = borsa.fetch_ohlcv(f"{sembol}/TRY", timeframe='15m', limit=150)
         if len(mumlar) < 50: return
         df = pd.DataFrame(mumlar, columns=['Zaman', 'Open', 'High', 'Low', 'Close', 'Volume'])
         df.at[df.index[-1], 'Close'] = guncel_fiyat
@@ -164,7 +165,7 @@ async def coin_analiz_et(sembol, guncel_fiyat):
         # 3. TAHTA DENGESİZLİĞİ
         ob_orani = 1.0
         try:
-            ob = await borsa.fetch_order_book(f"{sembol}/TRY", limit=20)
+            ob = borsa.fetch_order_book(f"{sembol}/TRY", limit=20)
             t_bid = sum([b[1] for b in ob['bids']])
             t_ask = sum([a[1] for a in ob['asks']])
             if t_ask > 0: ob_orani = t_bid / t_ask
@@ -188,13 +189,13 @@ async def coin_analiz_et(sembol, guncel_fiyat):
 
                 if CANLI_ISLEM_AKTIF:
                     try:
-                        bakiye = await borsa.fetch_balance()
+                        bakiye = borsa.fetch_balance()
                         tl_bakiye = bakiye['free'].get('TRY', 0)
                         islem_tl = tl_bakiye * BAKIYE_KULLANIM_ORANI
                         miktar = islem_tl / guncel_fiyat
 
                         if islem_tl > 50:
-                            emir = await borsa.create_market_buy_order(f"{sembol}/TRY", miktar)
+                            emir = borsa.create_market_buy_order(f"{sembol}/TRY", miktar)
                             print(f"   💰 CANLI ALIM: ₺{islem_tl:.2f} ile {sembol} alındı! (ID: {emir['id']})", flush=True)
                             aktif_pozisyonlar[sembol] = {'Maliyet': guncel_fiyat, 'Mevcut_Stop': stop_fiyat, 'Max_Fiyat': guncel_fiyat, 'Durum': 'AKTIF'}
                         else:
@@ -209,54 +210,59 @@ async def coin_analiz_et(sembol, guncel_fiyat):
         pass
 
 # =====================================================================
-# ⚡ WEBSOCKET DİNLEME (WATCH TICKER) AKIŞI
+# ⚡ KESİNTİSİZ SENKRON ANA DÖNGÜ
 # =====================================================================
-async def ana_dinleyici_dongu():
+def ana_dongu():
     global guncel_kur
-    print("🦅 Asenkron WebSocket Bot (Keskin Nişancı) Başlatıldı...", flush=True)
+    print("🦅 Senkron BtcTurk Botu Başlatıldı...", flush=True)
     print(f"🤖 Canlı İşlem: {'🟢 AKTİF' if CANLI_ISLEM_AKTIF else '🟡 SANAL'}\n", flush=True)
-
-    dinlenecek_semboller = [f"{c}/TRY" for c in coin_listesi]
 
     while True:
         try:
+            # 1. Kur bilgisini alıyoruz
             try:
-                usdt_ticker = await borsa.fetch_ticker("USDT/TRY")
+                usdt_ticker = borsa.fetch_ticker("USDT/TRY")
                 guncel_kur = usdt_ticker['last']
             except: pass
 
             aktif_sayisi = sum(1 for k, v in aktif_pozisyonlar.items() if v['Durum'] == 'AKTIF')
-            print(f"⚡ [WebSocket Aktif] - Piyasayı Anlık Dinliyor... | Slot: [{aktif_sayisi}/{MAX_AKTIF_ISLEM}]", flush=True)
+            print(f"⚡ [Piyasa Taraması] - {len(coin_listesi)} Coin İnceleniyor... | Slot: [{aktif_sayisi}/{MAX_AKTIF_ISLEM}]", flush=True)
 
             if aktif_sayisi > 0:
                 print("─"*50, flush=True)
                 for c, poz in aktif_pozisyonlar.items():
                     if poz['Durum'] == 'AKTIF':
-                        pnl = ((poz['Max_Fiyat'] - poz['Maliyet']) / poz['Maliyet']) * 100
                         print(f"💼 Aktif: {c} | Maliyet: {hassas(poz['Maliyet'])} | Stop: {hassas(poz['Mevcut_Stop'])}", flush=True)
                 print("─"*50, flush=True)
             else:
-                print("🔍 Bot pusuda, destek sekmesi ve hacim patlaması bekliyor...\n", flush=True)
+                print("🔍 Bot pusuda, destek sekmesi ve hacim patlaması bekliyor...", flush=True)
 
-            tickers = await borsa.watch_tickers(dinlenecek_semboller)
+            # 2. Tüm coin'leri sırayla, senkron bir şekilde tarıyoruz
+            # Hız kazanmak için, coin_listesini her döngüde baştan sona kontrol ediyoruz
+            for c in coin_listesi:
+                try:
+                    ticker = borsa.fetch_ticker(f"{c}/TRY")
+                    canli_fiyat = ticker['last']
+                    coin_analiz_et(c, canli_fiyat)
+                    time.sleep(0.1) # Borsa API'sini yormamak için kısa bekleme (hız sınırı)
+                except Exception as e:
+                    continue # Bir coin hata verirse diğerine geç
 
-            for sembol_try, veri in tickers.items():
-                saf_sembol = sembol_try.split('/')[0]
-                canli_fiyat = veri['last']
-
-                asyncio.create_task(coin_analiz_et(saf_sembol, canli_fiyat))
+            # Tarama bittikten sonra borsa banını engellemek için 10 saniye bekle
+            print("\n🔄 Bir tarama döngüsü tamamlandı, 10 saniye sonra yeni döngü başlıyor...\n", flush=True)
+            time.sleep(10)
 
         except ccxt.NetworkError:
-            print("⚠️ İnternet veya borsa bağlantısı koptu. 5 saniye sonra yeniden bağlanılıyor...", flush=True)
-            await asyncio.sleep(5)
+            print("⚠️ İnternet veya borsa bağlantısı koptu. 5 saniye sonra yeniden denenecek...", flush=True)
+            time.sleep(5)
         except Exception as e:
-            await asyncio.sleep(1)
+            print(f"⚠️ Hata: {e}. 5 saniye sonra devam edilecek...", flush=True)
+            time.sleep(5)
 
 # =====================================================================
 # 🚀 BOTU ATEŞLE
 # =====================================================================
-try:
-    loop = asyncio.get_running_loop()
-    loop.create_task(ana_dinleyici_dongu())
-except RuntimeError:
-    asyncio.run(ana_dinleyici_dongu())
+if __name__ == "__main__":
+    ana_dongu()
+        
+        #
